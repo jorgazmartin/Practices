@@ -1,10 +1,10 @@
-source("Dependencies.R")
+source(paste0(getwd(),"/Analysis/DS2/2.Code/Dependencies.R"))
 
 reads <- read.table(paste0(inputDir,"reads.txt"))
 
 ## This browses ensembl, create, and save the local database, if it is ran the first time. If not, it loads the previously saved object.  
 
-first_time <- FALSE
+first_time <- TRUE
 if(first_time)
 {
   fly <- useMart(host="https://feb2021.archive.ensembl.org", biomart="ENSEMBL_MART_ENSEMBL", dataset="dmelanogaster_gene_ensembl")
