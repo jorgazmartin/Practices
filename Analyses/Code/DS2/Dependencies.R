@@ -34,11 +34,3 @@ library(AnnotationDbi)
 library(msigdbr)
 library(enrichplot)
 library(ggnewscale)
-
-###############################
-#### ENVIRONMENT VARIABLES ####
-###############################
-
-rootDir <- "C:/Users/jorge/OneDrive/Master BQB/S2_Big Data/Practices/Analysis/DS2/"
-inputDir <- paste0(rootDir,"1.Input/")
-outputDir <- paste0(rootDir,"3.Output/")

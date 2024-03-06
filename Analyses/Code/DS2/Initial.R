@@ -1,6 +1,6 @@
-source(paste0(getwd(),"/Analysis/DS2/2.Code/Dependencies.R"))
+source("Analyses/Code/DS2/Dependencies.R")
 
-reads <- read.table(paste0(inputDir,"reads.txt"))
+reads <- read.table("Analyses/Inputs/Raw_datasets/D2/reads.txt")
 
 ## This browses ensembl, create, and save the local database, if it is ran the first time. If not, it loads the previously saved object.  
 
@@ -8,10 +8,10 @@ first_time <- TRUE
 if(first_time)
 {
   fly <- useMart(host="https://feb2021.archive.ensembl.org", biomart="ENSEMBL_MART_ENSEMBL", dataset="dmelanogaster_gene_ensembl")
-  dir.create(paste0(inputDir,"marts"),recursive=TRUE)
-  save(fly,file=paste0(inputDir,"marts/fly_mart.Rdata"))
+  dir.create("Analyses/Inputs/Raw_datasets/D2/marts",recursive=TRUE)
+  save(fly,file="Analyses/Inputs/Raw_datasets/D2/marts/fly_mart.Rdata")
 } else {
-  load(file=paste0(inputDir,"marts/fly_mart.Rdata"))
+  load(file="Analyses/Inputs/Raw_datasets/D2/marts/fly_mart.Rdata")
 }
 
 ## Now run this to get a sense of the type of attributes available from the database
