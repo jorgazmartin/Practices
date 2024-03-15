@@ -1,9 +1,64 @@
+# Load the dependencies.
 source("Analyses/Code/Dependencies.R")
 
+Validation <- function (genes_fly, lengths, metadata, reads, tpms) {
+  
+  fail <- TRUE
+  
+  ## VALIDATION: Is the mapping leading to the feature data annotations unequivocal?
+  if (dim(genes_fly)[1] != length(unique(genes_fly$flybase_gene_id))) {
+    fail <- FALSE
+    cat("VALIDATION | NOK - Mapping leadin to feature data annotations not unequivocal\n")
+  }
+  
+  if (dim(reads)[1] != dim(genes_fly)[1] || dim(tpms)[1] != dim(genes_fly)[1] || dim(lengths)[1] != dim(genes_fly)[1]) {
+    fail <- FALSE
+    cat("VALIDATION | NOK - Tables do not have the same number of genes\n",
+        "Featured genes: ",dim(genes_fly)[1],"\n",
+        "Reads: ",dim(reads)[1],"\n",
+        "Lengths: ",dim(lengths)[1],"\n",
+        "TPMs: ",dim(tpms)[1],"\n",sep="")
+  }
+  
+  ## VALIDATION: Check that the orders match (we know there are the same number, but are they the same?)
+  if (length(which(rownames(reads) != rownames(genes_fly))) != 0) {
+    fail <- FALSE
+    cat("VALIDATION | NOK - Unmatched genes in reads table\n")
+  }
+  if (length(which(rownames(lengths) != rownames(genes_fly))) != 0) {
+    fail <- FALSE
+    cat("VALIDATION | NOK - Unmatched genes in lengths table\n")
+  }
+  if (length(which(rownames(tpms) != rownames(genes_fly))) != 0) {
+    fail <- FALSE
+    cat("VALIDATION | NOK - Unmatched genes in tpms table\n")
+  }
+  
+  ## VALIDATION: Meta-data Check order between samples (column-wise) and meta_data annotations (row-wise)
+  if (length(which(rownames(metadata) != colnames(reads))) != 0){
+    fail <- FALSE
+    cat("VALIDATION | NOK - Unmatched metadata in reads table\n")
+  }
+  if (length(which(rownames(metadata) != colnames(lengths))) != 0){
+    fail <- FALSE
+    cat("VALIDATION | NOK - Unmatched metadata in lengths table\n")
+  }
+  if (length(which(rownames(metadata) != colnames(tpms))) != 0){
+    fail <- FALSE
+    cat("VALIDATION | NOK - Unmatched metadata in lengths table\n")
+  }
+  
+  return (fail)
+  
+}
+
+# Load the tables (reads, lengths, tpms, metadata).
 reads <- read.table("Analyses/Inputs/Raw_datasets/D2/reads.txt")
+lengths <- read.table("Analyses/Inputs/Raw_datasets/D2/lengths.txt")
+tpms <- read.table("Analyses/Inputs/Raw_datasets/D2/tpms.txt")
+metadata <- read.table("Analyses/Inputs/Raw_datasets/D2/meta_data.txt")
 
-## This browses ensembl, create, and save the local database, if it is ran the first time. If not, it loads the previously saved object.  
-
+# Query ensemble to load the mart or load the local data.
 first_time <- TRUE
 if(first_time)
 {
@@ -14,70 +69,36 @@ if(first_time)
   base::load(file="Analyses/Inputs/Raw_datasets/D2/marts/fly_mart.Rdata")
 }
 
-## Now run this to get a sense of the type of attributes available from the database
-possible_attributes <- listAttributes(fly)
-head(possible_attributes)
+# possible_attributes <- listAttributes(fly)
+# head(possible_attributes)
 
-## After inspecting that, we identify the attributes we want: 
-## Now, run getBM: This means: go to the fly database, select all the items for which "external_gene_id" is included in rownames(reads), and, for all of them, give me the following attributes: c("ensembl_gene_id","flybase_gene_id","start_position","end_position","chromosome_name","gene_biotype")
-
+# Get the desired gene attributes only for the genes in reads.
 genes_fly <- getBM(attributes = c("flybase_gene_id","start_position","end_position","chromosome_name","gene_biotype"), filters = "flybase_gene_id", values = rownames(reads) , mart = fly)
-
-## Inspect the header of the result:
-head(genes_fly)
+rownames(genes_fly) <- genes_fly$flybase_gene_id
 
 ## How many of our genes we caught?
-length(which(!(rownames(reads) %in% genes_fly$flybase_gene_id)))
+num_unfeatured_genes <- length(which(!(rownames(reads) %in% rownames(genes_fly))))
+cat("Number of unfeatured genes: ",num_unfeatured_genes,"\n",sep="")
 
-# There is a small discrepancy between the database and the genes that were annotated from the kallisto+tximport steps, from the reference transcriptome, and transcript to gene mappings: 
-## 43 genes in the reads matrix are absent from the metadata: for the sake of progressing quickly to the points we want to illustrate, we will just drop them from the reads matrix:
-rownames(genes_fly) <- genes_fly$flybase_gene_id
+# Filter reads, tpms and lengths: we just take the featured genes.
 reads <- reads[which(rownames(reads) %in% rownames(genes_fly)),]
+lengths <- lengths[which(rownames(lengths) %in%rownames(reads)),]
+tpms <- tpms[which(rownames(tpms) %in% rownames(reads)),]
 
-## Is the mapping leading to the feature data annotations unequivocal?
-dim(genes_fly)
-length(unique(genes_fly$flybase_gene_id))
-
-# It is ok: the same 14197 genes, let us declare the rownames as flybase_gene_id, and order the items alphabetically
-
+# Order by gene (alphabetically)
 genes_fly <- genes_fly[order(rownames(genes_fly)),]
-
-## Order reads rows also alphabetically:
 reads <- reads[order(rownames(reads)),]
-## Check that the orders match.
-length(which(rownames(reads) != rownames(genes_fly)))
+tpms <- tpms[order(rownames(tpms)),]
+lengths <- lengths[order(rownames(lengths)),]
 
-## Now save the reads table as well as the feature table after removing those 43 un-annotated genes.
-dir.create("Analyses/Inputs/Processed_datasets/D2/annotated/",recursive=TRUE)
-write.table(reads,"Analyses/Inputs/Processed_datasets/D2/annotated/reads.txt")
-write.table(genes_fly,"Analyses/Inputs/Processed_datasets/D2/annotated/feature_data.txt")
+if (Validation(genes_fly, lengths, metadata, reads, tpms)) {
+  ## SAVE: Now save the reads table as well as the feature table after removing those 43 un-annotated genes.
+  dir.create("Analyses/Inputs/Processed_datasets/D2/annotated/",recursive=TRUE)
+  write.table(reads,"Analyses/Inputs/Processed_datasets/D2/annotated/reads.txt")
+  write.table(genes_fly,"Analyses/Inputs/Processed_datasets/D2/annotated/feature_data.txt")
+  write.table(lengths,"Analyses/Inputs/Processed_datasets/D2/annotated/lengths.txt")
+  write.table(tpms,"Analyses/Inputs/Processed_datasets/D2/annotated/tpms.txt")
+  write.table(metadata,"Analyses/Inputs/Processed_datasets/D2/annotated/metadata.txt")
+}
 
-## Load lengths, tpms and metadata and save the corresponding annotated versions in the same place
 
-lengths=read.table("Analyses/Inputs/Raw_datasets/D2/lengths.txt")
-tpms=read.table("Analyses/Inputs/Raw_datasets/D2/tpms.txt")
-metadata=read.table("Analyses/Inputs/Raw_datasets/D2/meta_data.txt")
-
-lengths=lengths[which(rownames(lengths) %in%rownames(reads)),]
-tpms=tpms[which(rownames(tpms) %in% rownames(reads)),]
-
-dim(lengths)
-dim(tpms)
-
-tpms=tpms[order(rownames(tpms)),]
-lengths=lengths[order(rownames(lengths)),]
-
-length(which(rownames(reads) != rownames(lengths)))
-
-length(which(rownames(reads) != rownames(tpms)))
-
-## All is ok.
-
-## Check order between samples (column-wise) and meta_data annotations (row-wise)
-length(which(rownames(metadata) != colnames(reads)))
-length(which(rownames(metadata) != colnames(lengths)))
-length(which(rownames(metadata) != colnames(tpms)))
-
-write.table(lengths,"Analyses/Inputs/Processed_datasets/D2/annotated/lengths.txt")
-write.table(tpms,"Analyses/Inputs/Processed_datasets/D2/annotated/tpms.txt")
-write.table(metadata,"Analyses/Inputs/Processed_datasets/D2/annotated/metadata.txt")
