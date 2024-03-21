@@ -116,7 +116,7 @@ filter <- function(tpms,threshold,metadata,grouping_factor){
 base::load("Analyses/Code/DS2/filteredBiotypes.RData")
 
 # Calculate the length of each gene. Store in genes_fly featured data.
-genes_fly$lengths=genes_fly$end_position-genes_fly$start_position
+genes_fly$lengths <- genes_fly$end_position-genes_fly$start_position
 
 # Quantification. Actually, from now on we will use just TPM.
 ecs <- get_effective_counts_from_counts(counts=reads,lengths=genes_fly$lengths,effective_lengths=lengths)
@@ -152,5 +152,6 @@ if(abs(prod(dge$samples$norm.factors)-1)>0.001){
 } else{
   # Save.
   save(filtered_cpms,filtered_ecs,filtered_fpkms,filtered_lengths,filtered_reads,filtered_tpms,filtered_tpms_1,genes_fly,metadata,
-       TMM_cpms,file="Analyses/Code/DS2/filtNormExpression.RData")
+       dge,TMM_cpms,file="Analyses/Code/DS2/filtNormExpression.RData")
 }
+
